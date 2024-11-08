@@ -14,7 +14,7 @@ struct timename {
 	int timeslot_idx;
 };
 
-std::vector<timename> timetable_display;
+inline std::vector<timename> timetable_display;
 
 // Compute structures
 
@@ -30,11 +30,11 @@ struct room {
 	std::string name;
 };
 
-std::vector<course> courses;
-std::vector<room> rooms;
-int num_slots;
+inline std::vector<course> courses;
+inline std::vector<room> rooms;
+inline int num_slots;
 
-std::vector<std::string> profs;
+inline std::vector<std::string> profs;
 
 struct gene {
 	int room_idx;
@@ -42,12 +42,12 @@ struct gene {
 };
 
 // The index of any given gene is the same as the course index, save 4 bits of memory
-std::vector<gene> chromosome;
+inline std::vector<gene> chromosome;
 
 // Acceleration structures
-std::vector<bool> timeslot_taken;
-std::vector<int> room_taken;
-std::vector<int> prof_taken;
+inline std::vector<bool> timeslot_taken;
+inline std::vector<int> room_taken;
+inline std::vector<int> prof_taken;
 
 
 // Helper functions
