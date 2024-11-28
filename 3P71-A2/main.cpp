@@ -3,13 +3,16 @@
 #include <string>
 #include <algorithm>
 #include <numeric>
+
 #include "common.h"
 #include "loader.h"
 
 using namespace std;
 
+bool AUTO_MODE = false;
+
 // Population size, must be even
-int POP_SIZE = 100;
+int POP_SIZE = 51;
 
 // Max number of generations
 int MAX_GEN = 1000;
@@ -27,11 +30,11 @@ float TOURNAMENT_WIN_RATE = 0.5f;
 
 
 // Crossover rate
-float CROSS_RATE = 0.6f;
+float CROSS_RATE = 0.90f;
 
 
 // Mutation rate
-float MUT_RATE = 0.01f;
+float MUT_RATE = 0.10f;
 
 
 // Chromosome size
@@ -77,7 +80,7 @@ struct are_busy {
 vector<vector<are_busy>> pop_timetables;
 
 // Build timetables for given chromosomes
-vector<vector<are_busy>> build_timetable(const vector<chromosome> population) {
+vector<vector<are_busy>> build_timetable(vector<chromosome> &population) {
 
 	vector<vector<are_busy>> timetables;
 
@@ -87,7 +90,7 @@ vector<vector<are_busy>> build_timetable(const vector<chromosome> population) {
 		vector<are_busy> timetable;
 
 		// Initialize timetable
-		for (int j = 0; j < chromosome_size; j++) {
+		for (int j = 0; j < num_slots; j++) {
 			are_busy ab;
 			timetable.push_back(ab);
 		}
@@ -95,10 +98,20 @@ vector<vector<are_busy>> build_timetable(const vector<chromosome> population) {
 		// Fill in timetable
 		for (int j = 0; j < chromosome_size; j++) {
 			gene g = c.genes[j];
-			are_busy ab = timetable[g.timeslot];
+			int duration = courses[g.course_idx].duration + 1;
 
-			ab.room_idx.push_back(g.room_idx);
-			ab.prof_idx.push_back(courses[g.course_idx].prof);
+			// Account for courses that take multiple slots
+			for (int k = 0; k < duration; k++) {
+				if (g.timeslot + k >= num_slots) {
+					break;
+				}
+				are_busy ab = timetable[g.timeslot + k];
+
+				ab.room_idx.push_back(g.room_idx);
+				ab.prof_idx.push_back(courses[g.course_idx].prof);
+
+				timetable[g.timeslot + k] = ab;
+			}
 		}
 
 		timetables.push_back(timetable);
@@ -120,6 +133,7 @@ float get_fitness(chromosome c) {
 	// one room is mentioned in the isbusy, then we are the only ones using it
 
 	int conflicts = 0;
+	int max_conflicts = 1;
 
 	// Check if room capacity is enough
 	for (int i = 0; i < chromosome_size; i++) {
@@ -139,7 +153,14 @@ float get_fitness(chromosome c) {
 	// Check for room and professor conflicts
 	for (int i = 0; i < chromosome_size; i++) {
 		gene g = c.genes[i];
-		int durration = courses[g.course_idx].duration;
+		int durration = courses[g.course_idx].duration + 1;
+
+		// the timeslot + duration of the course then we just add one conflict for each slot
+		if (g.timeslot + durration > num_slots) {
+			conflicts++;
+			continue;
+		}
+		max_conflicts += durration - 1;
 
 		int room = g.room_idx;
 		int prof = courses[g.course_idx].prof;
@@ -148,19 +169,37 @@ float get_fitness(chromosome c) {
 		for (int j = 0; j < durration; j++) {
 
 			are_busy ab = timetable[g.timeslot + j];
-
-			if (count(ab.room_idx.begin(), ab.room_idx.begin(), room) > 1) {
+			int temp = ab.room_idx.size();
+			
+			// Count the number of times conficts happen.
+			int appearances = 0;
+			for (int k = 0; k < ab.room_idx.size(); k++) {
+				if (ab.room_idx[k] == room) {
+					appearances++;
+				}
+			}
+			if (appearances > 1) {
 				conflicts++;
 			}
+			max_conflicts++;
 
-			if (count(ab.prof_idx.begin(), ab.prof_idx.begin(), prof) > 1) {
+			// do the same for the prof
+			appearances = 0;
+			for (int k = 0; k < ab.prof_idx.size(); k++) {
+				if (ab.prof_idx[k] == prof) {
+					appearances++;
+				}
+			}
+			if (appearances > 1) {
 				conflicts++;
 			}
+			max_conflicts++;
 		}
 
 	}
 
 	float fitness = 1.0f / (float)(1 + conflicts);
+	//float fitness = 1.0f - (float)conflicts / (float)max_conflicts;
 	return fitness;
 }
 
@@ -260,6 +299,28 @@ pair<chromosome, chromosome> crossover(chromosome a, chromosome b) {
 	return make_pair(c1, c2);
 }
 
+// Crossover operator, one point crossover
+// Takes two parents and returns two children
+pair<chromosome, chromosome> crossover_one_point(chromosome a, chromosome b) {
+	chromosome c1;
+	chromosome c2;
+
+	int crossover_point = rand() % chromosome_size;
+
+	for (int i = 0; i < chromosome_size; i++) {
+		if (i < crossover_point) {
+			c1.genes.push_back(a.genes[i]);
+			c2.genes.push_back(b.genes[i]);
+		}
+		else {
+			c1.genes.push_back(b.genes[i]);
+			c2.genes.push_back(a.genes[i]);
+		}
+	}
+
+	return make_pair(c1, c2);
+}
+
 // Mutation operator, mutate each gene with probability MUT_RATE
 // Input is a chromosome
 // Output is the mutated chromosome
@@ -275,33 +336,92 @@ chromosome mutate(chromosome c) {
 	return c;
 }
 
-void solution_found(chromosome c) {
-	cout << "Solution found!" << endl;
-	cout << "Fitness: " << get_fitness(c) << endl;
-	cout << "Chromosome: ";
+void print_chromosome(chromosome c) {
+	
+	// for now just print out all the information in order of timeslot in csv format
+	vector<gene> ordered_genes = c.genes;
+
+	// sort by the timeslot id
+	sort(ordered_genes.begin(), ordered_genes.end(), [](gene a, gene b) {
+		return a.timeslot < b.timeslot;
+		});
+
 	for (int i = 0; i < chromosome_size; i++) {
-		// print chromosome smoehow
+		gene g = ordered_genes[i];
+		cout << courses[g.course_idx].name << "," << rooms[g.room_idx].name << "," << timetable_display[g.timeslot].day << "," << timetable_display[g.timeslot].time << endl;
 	}
-	cout << endl;
+
+	// print out the data as the raw data
+	for (int i = 0; i < chromosome_size; i++) {
+		gene g = ordered_genes[i];
+		cout << g.course_idx << "," << g.room_idx << "," << timetable_display[g.timeslot].day << "," << timetable_display[g.timeslot].time << endl;
+	}
+
+	cout << get_fitness(c) << endl;
+
+}
+
+void solution_found(chromosome c) {
+	if (!AUTO_MODE) {
+		cout << "Solution found!" << endl;
+		cout << "Fitness: " << get_fitness(c) << endl;
+		cout << "Chromosome: " << endl;
+		print_chromosome(c);
+		cout << endl;
+	}
+	else {
+		// Auto mode will print results to a file
+	}
 }
 
 // Main function
-int main() {
-	// Random seed
-	srand(4);
+int main(int argc, char* argv[]) {
 
-	cout << "Enter the directory of the data files (def: data/t1):" << "\n" << "> ";
-	string input;
+	// Argument order handling:
+	// 1. Automatic mode, no user input, only accepts "-a"
+	// 2. Data path
+	// 3. Crossover rate, accepts decimal between 0 and 1
+	// 3. Mutation rate, accepts decimal between 0 and 1
+	// 4. Random seed, accepts uint
 
-	// Use getline to accept no imput for default
-	getline(cin, input);
+	// Automatic mode
+	if (argc > 1 && string(argv[1]) == "-a") {
+		AUTO_MODE = true;
 
-	if (input.empty()) {
-		input = "data/t1";
+		// Read data path arg
+		string data_path = string(argv[2]);
+
+		// Read crossover rate arg
+		CROSS_RATE = stof(argv[3]);
+
+		// Read mutation rate arg
+		MUT_RATE = stof(argv[4]);
+
+		// Read random seed arg
+		srand(stoi(argv[5]));
+
+		load(data_path);
+		chromosome_size = courses.size();
+
+	} else {
+		
+		// Random seed
+		srand(1);
+
+		cout << "Enter the directory of the data files (def: data/t1):" << "\n" << "> ";
+		string input;
+
+		// Use getline to accept no imput for default
+		getline(cin, input);
+
+		if (input.empty()) {
+			input = "data/t1";
+		}
+
+		load(input);
+		chromosome_size = courses.size();
+
 	}
-
-	load(input);
-	chromosome_size = courses.size();
 
 	// Initialize population
 	vector<chromosome> population = init_population();
@@ -329,9 +449,10 @@ int main() {
 			//cout << population[0][i] << " ";
 		}
 		cout << "Generation " << gen << " best fitness: " << get_fitness(population[0])
-			<< " Average fitness: " << accumulate(population.begin(), population.end(), 0.0, [](float a, chromosome b) {return a + b.fitness; }) / POP_SIZE << endl;
+			<< " Average fitness: " << accumulate(population.begin(), population.end(), 0.0, [](double a, chromosome b) {return a + b.fitness; }) / POP_SIZE << endl;
 
 		if (get_fitness(population[0]) == 1.0f) {
+			get_fitness(population[0]);
 			solution_found(population[0]);
 			return 0;
 		}
@@ -369,7 +490,7 @@ int main() {
 				continue;
 			}
 
-			pair<chromosome, chromosome> children = crossover(winners[i % winners.size()], winners[(i + 1) % winners.size()]);
+			pair<chromosome, chromosome> children = crossover_one_point(winners[i % winners.size()], winners[(i + 1) % winners.size()]);
 			new_population.push_back(children.first);
 			new_population.push_back(children.second);
 		}
@@ -387,7 +508,7 @@ int main() {
 		// Update the population
 		population = new_population;
 
-		// Reindex the population since we have new chromosomes
+		// Reindex the population
 		for (int i = 0; i < POP_SIZE; i++) {
 			population[i].multiverse_idx = i;
 		}
