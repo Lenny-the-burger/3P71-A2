@@ -1,4 +1,5 @@
 @echo off
+setlocal enabledelayedexpansion
 
 :: Set variables
 set EXE_PATH=x64/Debug/3P71-A2.exe
@@ -7,27 +8,36 @@ set OUTPUT_DIR=results
 set OUTPUT_FILE=combined_results.txt
 
 
-set TRIAL=1
-
-start %EXE_PATH% -a %DATA_PATH% 1.00 0.00 %TRIAL%
-pause
+set _TRIAL=1
 
 :: Loop for 5 trials
 for /L %%i in (1,1,5) do (
     echo Starting trial %%i...
 
-    start %EXE_PATH% -a %DATA_PATH% 1.00 0.00 %TRIAL%
-    set /a TRIAL=TRIAL+1
+    echo Running #!_TRIAL!
 
-    start %EXE_PATH% -a %DATA_PATH% 1.00 0.10 %TRIAL%
-    set /a TRIAL=TRIAL+1
+    start %EXE_PATH% -a %DATA_PATH% 1.00 0.00 %%i !_TRIAL!
+    set /a _TRIAL=!_TRIAL!+1
 
-    start %EXE_PATH% -a %DATA_PATH% 0.90 0.00 %TRIAL%
-    set /a TRIAL=TRIAL+1
+    echo Running #!_TRIAL!
 
-    start /wait %EXE_PATH% -a %DATA_PATH% 0.90 0.10 %TRIAL%
-    set /a TRIAL=TRIAL+1
+    start %EXE_PATH% -a %DATA_PATH% 1.00 0.10 %%i !_TRIAL!
+    set /a _TRIAL=!_TRIAL!+1
+
+    echo Running #!_TRIAL!
+
+    start %EXE_PATH% -a %DATA_PATH% 0.90 0.00 %%i !_TRIAL!
+    set /a _TRIAL=!_TRIAL!+1
+
+    echo Running #!_TRIAL!
+
+    start /wait %EXE_PATH% -a %DATA_PATH% 0.90 0.10 %%i !_TRIAL!
+    set /a _TRIAL=!_TRIAL!+1
 )
+
+echo ...Done!
+
+endlocal
 
 :: Combine all result files into one file
 echo Combining result files into %OUTPUT_DIR%/%OUTPUT_FILE%...

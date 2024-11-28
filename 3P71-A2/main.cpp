@@ -18,7 +18,7 @@ vector<float> best_fitness_archive;
 int POP_SIZE = 51;
 
 // Max number of generations
-int MAX_GEN = 200;
+int MAX_GEN = 1001;
 
 
 // Elite rate
@@ -377,7 +377,7 @@ int main(int argc, char* argv[]) {
 	// 3. Crossover rate, accepts decimal between 0 and 1
 	// 3. Mutation rate, accepts decimal between 0 and 1
 	// 4. Random seed, accepts uint
-	// 5. Trial number, accepts uint
+	// 6. Trial number, accepts uint
 
 	// Automatic mode
 	if (argc > 1 && string(argv[1]) == "-a") {
@@ -449,11 +449,15 @@ int main(int argc, char* argv[]) {
 		for (int i = 0; i < chromosome_size; i++) {
 			//cout << population[0][i] << " ";
 		}
-		cout << "Generation " << gen << " best fitness: " << get_fitness(population[0])
-			<< " Average fitness: " << accumulate(population.begin(), population.end(), 0.0, [](double a, chromosome b) {return a + b.fitness; }) / POP_SIZE << endl;
 
-		//mean_fitness_archive.push_back(accumulate(population.begin(), population.end(), 0.0, [](double a, chromosome b) {return a + b.fitness; }) / POP_SIZE);
-		//best_fitness_archive.push_back(get_fitness(population[0]));
+		float best_fitness = get_fitness(population[0]);
+		float mean_fitness = accumulate(population.begin(), population.end(), 0.0, [](double a, chromosome b) {return a + b.fitness; }) / POP_SIZE;
+
+		cout << "Generation " << gen << " best fitness: " << best_fitness
+			<< " Average fitness: " << mean_fitness << endl;
+
+		mean_fitness_archive.push_back(mean_fitness);
+		best_fitness_archive.push_back(best_fitness);
 
 		if (get_fitness(population[0]) == 1.0f) {
 			get_fitness(population[0]);
@@ -536,13 +540,18 @@ int main(int argc, char* argv[]) {
 		file << "Mutation rate: " << MUT_RATE << "\n";
 		file << "Random seed: " << argv[5] << "\n";
 		file << "Trial number: " << trial_num << "\n\n";
+		file << "Population size: " << POP_SIZE << "\n";
 
-		file << "Best fitness: " << get_fitness(population[0]) << "\n";
+		file << "Best fitness: " << get_fitness(population[0]) << "\n\n";
+
+		file << "Best chromosome:\n";
 
 		// Write the best chromosome to the file
 		for (int i = 0; i < chromosome_size; i++) {
-			file << courses[population[0].genes[i].course_idx].name << "," << rooms[population[0].genes[i].room_idx].name << "," << timetable_display[population[0].genes[i].timeslot].day << "," << timetable_display[population[0].genes[i].timeslot].time << "\n\n\n";
+			file << courses[population[0].genes[i].course_idx].name << "," << rooms[population[0].genes[i].room_idx].name << "," << timetable_display[population[0].genes[i].timeslot].day << "," << timetable_display[population[0].genes[i].timeslot].time << "\n";
 		}
+
+		file << "\n\n";
 
 		// write the archives to the file
 		file << "Mean fitness archive:\n";
