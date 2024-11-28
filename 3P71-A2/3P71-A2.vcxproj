@@ -134,6 +134,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="..\README.md" />
+    <None Include="..\test_runner.bat" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="common.h" />

@@ -10,12 +10,15 @@
 using namespace std;
 
 bool AUTO_MODE = false;
+int trial_num = 0;
+vector<float> mean_fitness_archive;
+vector<float> best_fitness_archive;
 
 // Population size, must be even
 int POP_SIZE = 51;
 
 // Max number of generations
-int MAX_GEN = 1000;
+int MAX_GEN = 200;
 
 
 // Elite rate
@@ -350,15 +353,6 @@ void print_chromosome(chromosome c) {
 		gene g = ordered_genes[i];
 		cout << courses[g.course_idx].name << "," << rooms[g.room_idx].name << "," << timetable_display[g.timeslot].day << "," << timetable_display[g.timeslot].time << endl;
 	}
-
-	// print out the data as the raw data
-	for (int i = 0; i < chromosome_size; i++) {
-		gene g = ordered_genes[i];
-		cout << g.course_idx << "," << g.room_idx << "," << timetable_display[g.timeslot].day << "," << timetable_display[g.timeslot].time << endl;
-	}
-
-	cout << get_fitness(c) << endl;
-
 }
 
 void solution_found(chromosome c) {
@@ -383,6 +377,7 @@ int main(int argc, char* argv[]) {
 	// 3. Crossover rate, accepts decimal between 0 and 1
 	// 3. Mutation rate, accepts decimal between 0 and 1
 	// 4. Random seed, accepts uint
+	// 5. Trial number, accepts uint
 
 	// Automatic mode
 	if (argc > 1 && string(argv[1]) == "-a") {
@@ -400,11 +395,17 @@ int main(int argc, char* argv[]) {
 		// Read random seed arg
 		srand(stoi(argv[5]));
 
+		// Read trial number arg
+		trial_num = stoi(argv[6]);
+
+		cout << "Random seed set to " << argv[5] << "\n";
+
 		load(data_path);
 		chromosome_size = courses.size();
 
-	} else {
-		
+	}
+	else {
+
 		// Random seed
 		srand(1);
 
@@ -451,12 +452,15 @@ int main(int argc, char* argv[]) {
 		cout << "Generation " << gen << " best fitness: " << get_fitness(population[0])
 			<< " Average fitness: " << accumulate(population.begin(), population.end(), 0.0, [](double a, chromosome b) {return a + b.fitness; }) / POP_SIZE << endl;
 
+		//mean_fitness_archive.push_back(accumulate(population.begin(), population.end(), 0.0, [](double a, chromosome b) {return a + b.fitness; }) / POP_SIZE);
+		//best_fitness_archive.push_back(get_fitness(population[0]));
+
 		if (get_fitness(population[0]) == 1.0f) {
 			get_fitness(population[0]);
 			solution_found(population[0]);
 			return 0;
 		}
-        
+
 		//cout << accumulate(fitness_cache.begin(), fitness_cache.end(), 0.0) / fitness_cache.size() << ",";
 		//cout << get_fitness(population[0]) << ",";
 
@@ -513,14 +517,46 @@ int main(int argc, char* argv[]) {
 			population[i].multiverse_idx = i;
 		}
 	}
-
-	// Print the best chromosome
-	population = sort_population(population);
-	cout << "Best chromosome: ";
-	for (int i = 0; i < chromosome_size; i++) {
-		//cout << population[0][i] << " ";
+	if (!AUTO_MODE) {
+		// Print the best chromosome
+		population = sort_population(population);
+		cout << "Best chromosome: ";
+		for (int i = 0; i < chromosome_size; i++) {
+			print_chromosome(population[0]);
+		}
+		cout << endl;
 	}
-	cout << endl;
+	else {
+		// Create a txt file named result with the trial number
+		string filename = "results/result" + to_string(trial_num) + ".txt";
+		ofstream file(filename);
+
+		// Write all the parameters to the file
+		file << "Crossover rate: " << CROSS_RATE << "\n";
+		file << "Mutation rate: " << MUT_RATE << "\n";
+		file << "Random seed: " << argv[5] << "\n";
+		file << "Trial number: " << trial_num << "\n\n";
+
+		file << "Best fitness: " << get_fitness(population[0]) << "\n";
+
+		// Write the best chromosome to the file
+		for (int i = 0; i < chromosome_size; i++) {
+			file << courses[population[0].genes[i].course_idx].name << "," << rooms[population[0].genes[i].room_idx].name << "," << timetable_display[population[0].genes[i].timeslot].day << "," << timetable_display[population[0].genes[i].timeslot].time << "\n\n\n";
+		}
+
+		// write the archives to the file
+		file << "Mean fitness archive:\n";
+		for (int i = 0; i < mean_fitness_archive.size(); i++) {
+			file << mean_fitness_archive[i] << ",";
+		}
+
+		file << "\n\nBest fitness archive:\n";
+		for (int i = 0; i < best_fitness_archive.size(); i++) {
+			file << best_fitness_archive[i] << ",";
+		}
+
+		file.close();
+	}
 
 	return 0;
 }

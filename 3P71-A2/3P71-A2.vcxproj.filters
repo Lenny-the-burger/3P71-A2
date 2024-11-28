@@ -32,6 +32,9 @@
     <None Include="..\README.md">
       <Filter>misc</Filter>
     </None>
+    <None Include="..\test_runner.bat">
+      <Filter>misc</Filter>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="loader.h">
