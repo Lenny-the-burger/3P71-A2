@@ -1,4 +1,5 @@
 #include "loader.h"
+#include <iostream>
 
 using namespace std;
 
@@ -17,10 +18,13 @@ void load(string dir) {
 	// Load the data into the structures
 	string prefix = dir + "/";
 
-	// Load the courses
-	vector<course> courses;
-
 	ifstream courses_file(prefix + "courses.txt");
+	// Check if the file is open
+	if (!courses_file.is_open()) {
+		cout << "Error: Could not open file " << prefix + "courses.txt" << endl;
+		exit(1);
+	}
+
 	string line;
 	getline(courses_file, line); // ignore the first line
 
@@ -74,7 +78,6 @@ void load(string dir) {
 		timename t;
 		t.time = data[1];
 		t.day = data[0];
-		t.timeslot_idx = num_slots;
 
 		num_slots++;
 
